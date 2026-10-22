@@ -1,0 +1,27 @@
+name: Python CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Validate sample threat model
+        run: python threat_model.py examples/vault-genai.json --validate-only
+
+      - name: Run unit tests
+        run: python -m unittest discover -s tests -v

@@ -1,0 +1,375 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Threat model report</title><style>body{max-width:1100px;margin:40px auto;padding:24px;font:15px/1.6 system-ui;color:#163047}pre{white-space:pre-wrap;overflow-wrap:anywhere} @media print{body{margin:0;padding:0;font-size:10pt}}</style><h1>Multi-Cloud Threat Model</h1><p>Readable source report. Open the Markdown file in a Mermaid-capable viewer for the architecture diagram. Use Print to save this view as PDF.</p><pre># Phase 1 Multi-Cloud GenAI Threat Model
+
+Protect confidential enterprise knowledge across Azure, AWS and GCP through identity, application, workload, data and operational controls. A private network is one vault control; valid identities and authorized releases still require verification.
+
+Design exercise. This report does not discover cloud resources or confirm vulnerabilities. Threats and scores require human review.
+
+## Executive priorities
+
+- T1 Stolen privileged session Current risk 20 (Critical); owner: IAM lead.
+- T2 Cross-group document disclosure Current risk 20 (Critical); owner: Application owner.
+- T3 Cross-cloud federation abuse Current risk 20 (Critical); owner: IAM lead.
+
+## Assumptions and scope
+
+- Illustrative design; no live resources were inspected. All controls are proposed and scores require review.
+- Azure hosts an employee-facing containerized RAG assistant and managed model endpoint; AWS stores approved source documents; GCP handles ingestion and vector search.
+- Enterprise identity provider authenticates employees. Separate workload identities query, ingest and deploy.
+- Confidential data crosses cloud boundaries only after data-owner approval. Exact services, regions, retention and contracts remain open.
+- No autonomous action tools; model training and provider physical controls are out of scope. Customer owns application authorization, IAM and resource configuration; provider responsibilities vary by selected service.
+
+## Bank vault control mapping
+
+| Vault element | Cloud protection |
+| --- | --- |
+| Valuables | Documents, embeddings, prompts and credentials |
+| Walls and door | Segmentation, private access and egress controls |
+| Identity checks | MFA, explicit workload federation and least privilege |
+| Dual authorization | Independent approval for high-risk IAM and releases |
+| Cameras and alarms | Audit telemetry and actionable detections |
+| Ledger | Protected document and administrative access records |
+| Guards and recovery | Containment runbooks and verified clean backups |
+
+## Assets
+
+| ID | Asset | Classification | CIA priority | Owner |
+| --- | --- | --- | --- | --- |
+| A1 | Source documents | Confidential | C/I | Data owner |
+| A2 | Embeddings and ACL metadata | Confidential | C/I | Data engineering |
+| A3 | Prompts answers and cache | Confidential | C/I/A | Application owner |
+| A4 | Tokens keys and secrets | Confidential | C/I | IAM lead |
+| A5 | Source code images and IaC | Restricted operational | I | DevSecOps lead |
+| A6 | Logs and recovery copies | Restricted operational | I/A | SOC and platform |
+
+## Architecture components and boundaries
+
+| ID | Component | Cloud | Boundary |
+| --- | --- | --- | --- |
+| user | Employee browser | External | TB1 |
+| idp | Enterprise identity provider | Enterprise | TB1 |
+| api | RAG API and runtime | Azure | TB1 |
+| model | Managed model endpoint | Azure | TB2 |
+| source | Approved document store | AWS | TB3 |
+| ingest | Ingestion worker | GCP | TB3 |
+| index | Vector index | GCP | TB4 |
+| pipeline | CI/CD and Terraform | Shared | TB5 |
+| soc | Security telemetry and backups | Independent security environment | TB6 |
+| Boundary | Trust decision |
+| --- | --- |
+| TB1 | Browser to identity and application; authenticate user and authorize each document. |
+| TB2 | Application to model; untrusted context cannot grant permissions. |
+| TB3 | Azure/GCP to AWS; bind federation claims and read-only resource permissions. |
+| TB4 | Azure to GCP index; server derives user entitlements and filters retrieval. |
+| TB5 | Contributor to production; independent review and scoped release authority. |
+| TB6 | Production to evidence/recovery; protect logs and backups independently. |
+
+## Architecture map
+
+```mermaid
+flowchart TD
+  n0[&quot;Employee browser&quot;]
+  n1[&quot;Enterprise identity provider&quot;]
+  n2[&quot;RAG API and runtime&quot;]
+  n3[&quot;Managed model endpoint&quot;]
+  n4[&quot;Approved document store&quot;]
+  n5[&quot;Ingestion worker&quot;]
+  n6[&quot;Vector index&quot;]
+  n7[&quot;CI/CD and Terraform&quot;]
+  n8[&quot;Security telemetry and backups&quot;]
+  n0 --&gt;|F1| n1
+  n0 --&gt;|F2| n2
+  n2 --&gt;|F3| n4
+  n4 --&gt;|F4| n5
+  n5 --&gt;|F5| n6
+  n2 --&gt;|F6| n6
+  n2 --&gt;|F7| n3
+  n7 --&gt;|F8| n2
+  n2 --&gt;|F9| n8
+  n4 --&gt;|F10| n8
+  n6 --&gt;|F11| n8
+```
+
+## Data flows
+
+| ID | Direction | Data | Authorization |
+| --- | --- | --- | --- |
+| F1 | user to idp | Authentication | Phishing-resistant MFA and contextual access |
+| F2 | user to api | User token and question | Validate issuer audience expiry; authorize user |
+| F3 | api to source | Authorized original documents | Exact federated workload and scoped object access |
+| F4 | source to ingest | Approved source and ACL metadata | Read-only ingestion role; preserve provenance |
+| F5 | ingest to index | Chunks embeddings and ACLs | Dedicated index write identity; approved document version |
+| F6 | api to index | Query and authorized chunks | Dedicated query identity; server enforces document ACL |
+| F7 | api to model | Minimum authorized context | Scoped inference permission; approved data handling |
+| F8 | pipeline to api | Approved image and IaC | Independent release approval; verified digest |
+| F9 | api to soc | Application audit events | Append-only logging identity |
+| F10 | source to soc | Object access events and recovery copies | Independent retention and backup authority |
+| F11 | index to soc | Query and identity audit | Explicit data-access log coverage |
+
+## Risk method
+
+Likelihood and impact use ordinal 1-5 scales. Likelihood: rare, unlikely, plausible, likely, expected under the assumed weakness. Impact: negligible, limited, material team disruption, major business harm, broad confidential-data loss or privileged compromise. Score = likelihood x impact. Low 1-4; Moderate 5-9; High 10-16; Critical 17-25. Targets are conditional on control validation. Proposed controls do not lower current risk. Scores are judgments, not measured probabilities.
+
+## Threat register
+
+| ID | STRIDE | Scenario | Assets / boundaries | Inherent | Current | Target | Status |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| T1 | S/E | Stolen privileged session | A1, A4, TB1, TB3 | 20 | 20 Critical | 10 | proposed |
+| T2 | I/E | Cross-group document disclosure | A1, A2, A3, TB1, TB4 | 20 | 20 Critical | 5 | proposed |
+| T3 | S/E | Cross-cloud federation abuse | A1, A2, A4, TB3, TB4 | 20 | 20 Critical | 10 | proposed |
+| T4 | T/I | Retrieved prompt injection | A2, A3, TB2 | 16 | 16 High | 8 | proposed |
+| T11 | T/D | Destruction of data and recovery | A1, A2, A6, TB6 | 15 | 15 High | 5 | proposed |
+| T5 | T/E | Compromised production release | A4, A5, TB5 | 15 | 15 High | 10 | proposed |
+| T6 | E/I | Runtime credential theft | A1, A4, TB2, TB3 | 15 | 15 High | 8 | proposed |
+| T7 | I | Confidential data exposure | A1, A3, A4, TB3, TB6 | 15 | 15 High | 5 | proposed |
+| T10 | D | Request abuse or dependency outage | A3, TB1, TB2, TB4 | 12 | 12 High | 6 | proposed |
+| T8 | T | Knowledge poisoning | A1, A2, TB3, TB4 | 12 | 12 High | 8 | proposed |
+| T9 | R | Audit suppression | A6, TB6 | 12 | 12 High | 4 | proposed |
+
+## Controls and validation
+
+
+### T1 Stolen privileged session
+
+Weakness: Standing privilege and weak change approval
+
+Business impact: Stolen admin session plus standing privilege changes cross-cloud trust; broad data access. A4, TB1/3.
+
+Owner: IAM lead
+
+Prevent: Phishing-resistant MFA; time-bound admin; dual approval for trust edits
+
+Detect: Alert on privilege activation and trust change followed by unusual reads
+
+Respond: Disable identity; apply resource deny; remove trust; assess issued sessions
+
+Recover: Restore reviewed IAM policies
+
+Validation: Unapproved trust edit rejected; exercise session containment
+
+### T2 Cross-group document disclosure
+
+Weakness: Server trusts caller document IDs or ACL labels
+
+Business impact: API trusts document IDs or caller ACL labels; employee retrieves another group&#x27;s confidential chunks. A1-3, F3/5.
+
+Owner: Application owner
+
+Prevent: Server-side document authorization before retrieval, source fetch and citations; isolate caches
+
+Detect: Alert on successful unauthorized canary retrieval and repeated denials
+
+Respond: Disable affected retrieval route; invalidate caches
+
+Recover: Repair ACL propagation and rebuild affected index
+
+Validation: Two-user cross-group tests return zero unauthorized chunks, citations or cached answers
+
+### T3 Cross-cloud federation abuse
+
+Weakness: Wildcard subjects/audiences and excess resource permission
+
+Business impact: Federation accepts broad subject/audience; compromised workload acquires unintended AWS/GCP permissions. A1/2/4, TB3/4.
+
+Owner: IAM lead
+
+Prevent: Exact issuer subject audience and environment bindings; separate query/ingestion identities
+
+Detect: Unexpected role exchange or resource access
+
+Respond: Remove trust and deny principal at resources
+
+Recover: Rebuild scoped trust using reviewed IaC
+
+Validation: Wrong issuer subject audience and environment all fail; valid identity has only required permissions
+
+### T4 Retrieved prompt injection
+
+Weakness: Untrusted text treated as instructions or excessive context sent
+
+Business impact: Malicious retrieved text influences model; excessive context or unsafe rendering leaks data or misleads users. A2/3, TB2.
+
+Owner: AI lead
+
+Prevent: Separate instructions from content; minimize context; no model-controlled authorization; escape output
+
+Detect: Track injection evaluation failures and anomalous citations
+
+Respond: Quarantine content; disable unsafe feature
+
+Recover: Restore approved prompt and trusted index
+
+Validation: Adversarial documents cannot expand access or trigger actions; evaluate answer reliability separately
+
+### T11 Destruction of data and recovery
+
+Weakness: Same principal can delete production and every backup
+
+Business impact: Attacker deletes source/index and backups using same authority; recovery fails. A1/2/6, TB6.
+
+Owner: Platform lead
+
+Prevent: Separate backup authority; retained versions; reviewed deletion policy
+
+Detect: Backup retention changes and mass deletion
+
+Respond: Freeze destructive identities; preserve surviving copies
+
+Recover: Restore trusted source and ACLs into clean environment and reindex
+
+Validation: Restore drill measures RTO 4h and RPO 24h targets; compromised production identity cannot delete all copies
+
+### T5 Compromised production release
+
+Weakness: Runner or dependency can publish unapproved privileged image
+
+Business impact: Compromised dependency or runner publishes privileged image; runtime steals tokens and reads documents. A4/5, TB5.
+
+Owner: DevSecOps lead
+
+Prevent: Isolated builds; dependency checks; provenance/digest verification; independent release approval
+
+Detect: Artifact drift and unusual runtime processes
+
+Respond: Freeze releases; isolate workloads; deny identity
+
+Recover: Rebuild clean artifact and redeploy reviewed version
+
+Validation: Unapproved digest and unreviewed release rejected; record approval and provenance
+
+### T6 Runtime credential theft
+
+Weakness: SSRF or runtime compromise plus excessive workload privilege
+
+Business impact: SSRF or runtime compromise reaches credentials; overbroad workload role enables secret/data reads. A1/4, TB2/3.
+
+Owner: Platform lead
+
+Prevent: SSRF input/egress checks; minimal identity grants; non-root workload; no unnecessary secrets
+
+Detect: Unexpected metadata/secret/store access
+
+Respond: Isolate runtime; deny identity; rotate exposed secrets
+
+Recover: Rebuild clean workload
+
+Validation: Bounded SSRF tests and permission checks prove non-required stores/secrets inaccessible
+
+### T7 Confidential data exposure
+
+Weakness: Public access permissive key grants or verbose prompt logs
+
+Business impact: Public store, permissive key policy or verbose prompt logs expose confidential data. A1-4, TB3/6.
+
+Owner: Data owner
+
+Prevent: Block public access; scope decrypt grants; encrypt; redact logs
+
+Detect: Exposure drift and unusual object/decrypt reads
+
+Respond: Restrict resource; rotate exposed secrets; assess disclosure
+
+Recover: Restore approved configuration
+
+Validation: Verify anonymous access denied and test sensitive markers absent from logs
+
+### T10 Request abuse or dependency outage
+
+Weakness: No user quotas concurrency limits or timeouts
+
+Business impact: User floods costly requests or dependency fails; no quotas/fallback produces outage and cost spike. A3, F2/5/6.
+
+Owner: Application owner
+
+Prevent: Per-user quotas; request/token limits; circuit breakers
+
+Detect: Volume/spend twice baseline for 10 minutes; error/latency alert
+
+Respond: Throttle requests; disable generation with safe unavailable response
+
+Recover: Restore capacity and verify dependency health
+
+Validation: Bounded load and dependency-failure test verifies caps and safe failures
+
+### T8 Knowledge poisoning
+
+Weakness: Unreviewed source writes or ACL metadata tampering
+
+Business impact: Curator/connector can overwrite approved source and ACL metadata; poisoned knowledge corrupts answers. A1-3, F4.
+
+Owner: Data engineering lead
+
+Prevent: Read-only ingestion; approved source versions; provenance checks
+
+Detect: Unexpected source version/hash or ACL drift
+
+Respond: Stop ingestion and quarantine source
+
+Recover: Restore trusted source/ACLs and reindex
+
+Validation: Tampered source and ACL metadata quarantined; trusted reindex passes authorization tests
+
+### T9 Audit suppression
+
+Weakness: Production administrators can erase evidence
+
+Business impact: Privileged actor disables audit or erases records; misuse cannot be attributed. A6, TB6.
+
+Owner: SOC lead
+
+Prevent: Independent restricted log destination and retention protections
+
+Detect: Required log stream absent for 10 minutes or unapproved retention change
+
+Respond: Preserve independent evidence; restrict destructive access
+
+Recover: Restore collector and approved logging configuration
+
+Validation: Safe log-disable event reaches SOC within target and production admin cannot erase archive
+
+## Attack paths
+
+
+### AP1 Stolen identity crosses clouds
+
+Steal admin session &gt; Edit federation trust &gt; Assume broad AWS role &gt; Read source documents &gt; Exfiltrate
+
+Threats: T1, T3, T7
+
+Breakpoints: Time-bound privilege, independent trust approval, scoped object access and correlated data-read alerts.
+
+### AP2 Private retrieval leaks documents
+
+Authenticate as ordinary employee &gt; Change document ID/filter &gt; Retrieve unauthorized chunks &gt; Model reveals confidential answer
+
+Threats: T2, T4
+
+Breakpoints: Server-side document ACLs before context assembly; per-user cache isolation and canary tests.
+
+### AP3 Compromised release steals data
+
+Compromise dependency or runner &gt; Deploy malicious image &gt; Steal runtime token &gt; Assume cross-cloud role &gt; Read data and suppress local logs
+
+Threats: T5, T6, T3, T9
+
+Breakpoints: Verified release digest, independent approval, narrow workload role and independent logs.
+
+### AP4 Poisoned recovery
+
+Modify approved source &gt; Rebuild poisoned index &gt; Overwrite recovery copy &gt; Restore poisoned data
+
+Threats: T8, T11
+
+Breakpoints: Independent source approval, protected versions and tested clean reindex.
+
+## Remediation and production gate
+
+Before production: validate document authorization, federation claims and release integrity; test alert routing and clean restoration. Assign named owners. Review all remaining High/Critical risks with the security lead and business data owner. Record any acceptance, approver, compensating control and expiry. This generated report grants no approval.
+
+## Incident response and recovery
+
+Declare an incident and preserve evidence; isolate affected workloads and deny compromised principals in every cloud; assess source documents read or modified; fix root causes and rebuild clean artifacts; restore trusted source versions and ACLs, reindex and verify authorization before reopening. Removing trust alone may not invalidate issued sessions. Backups do not undo disclosure. Proposed recovery targets: RTO 4 hours and RPO 24 hours, pending business approval and restore testing.
+
+## Source and limitations
+
+Based on the supplied Day-1-10.pdf Phase 1 Security Mindset Reset, especially the capstone requirements on PDF page 8, and the user-provided bank-vault analogy. The sample is an illustrative Azure/AWS/GCP GenAI design, not a live assessment. No provider credentials, network access or LLM API is required. The generator formats analyst-authored threats; it does not infer security completeness.
+</pre></html>

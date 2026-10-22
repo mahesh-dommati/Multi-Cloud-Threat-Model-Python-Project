@@ -1,0 +1,662 @@
+{
+  "title": "Phase 1 Multi-Cloud GenAI Threat Model",
+  "summary": "Protect confidential enterprise knowledge across Azure, AWS and GCP through identity, application, workload, data and operational controls. A private network is one vault control; valid identities and authorized releases still require verification.",
+  "assumptions": [
+    "Illustrative design; no live resources were inspected. All controls are proposed and scores require review.",
+    "Azure hosts an employee-facing containerized RAG assistant and managed model endpoint; AWS stores approved source documents; GCP handles ingestion and vector search.",
+    "Enterprise identity provider authenticates employees. Separate workload identities query, ingest and deploy.",
+    "Confidential data crosses cloud boundaries only after data-owner approval. Exact services, regions, retention and contracts remain open.",
+    "No autonomous action tools; model training and provider physical controls are out of scope. Customer owns application authorization, IAM and resource configuration; provider responsibilities vary by selected service."
+  ],
+  "vault_mapping": [
+    {
+      "vault": "Valuables",
+      "cloud": "Documents, embeddings, prompts and credentials"
+    },
+    {
+      "vault": "Walls and door",
+      "cloud": "Segmentation, private access and egress controls"
+    },
+    {
+      "vault": "Identity checks",
+      "cloud": "MFA, explicit workload federation and least privilege"
+    },
+    {
+      "vault": "Dual authorization",
+      "cloud": "Independent approval for high-risk IAM and releases"
+    },
+    {
+      "vault": "Cameras and alarms",
+      "cloud": "Audit telemetry and actionable detections"
+    },
+    {
+      "vault": "Ledger",
+      "cloud": "Protected document and administrative access records"
+    },
+    {
+      "vault": "Guards and recovery",
+      "cloud": "Containment runbooks and verified clean backups"
+    }
+  ],
+  "assets": [
+    {
+      "id": "A1",
+      "name": "Source documents",
+      "classification": "Confidential",
+      "cia": "C/I",
+      "owner": "Data owner"
+    },
+    {
+      "id": "A2",
+      "name": "Embeddings and ACL metadata",
+      "classification": "Confidential",
+      "cia": "C/I",
+      "owner": "Data engineering"
+    },
+    {
+      "id": "A3",
+      "name": "Prompts answers and cache",
+      "classification": "Confidential",
+      "cia": "C/I/A",
+      "owner": "Application owner"
+    },
+    {
+      "id": "A4",
+      "name": "Tokens keys and secrets",
+      "classification": "Confidential",
+      "cia": "C/I",
+      "owner": "IAM lead"
+    },
+    {
+      "id": "A5",
+      "name": "Source code images and IaC",
+      "classification": "Restricted operational",
+      "cia": "I",
+      "owner": "DevSecOps lead"
+    },
+    {
+      "id": "A6",
+      "name": "Logs and recovery copies",
+      "classification": "Restricted operational",
+      "cia": "I/A",
+      "owner": "SOC and platform"
+    }
+  ],
+  "components": [
+    {
+      "id": "user",
+      "name": "Employee browser",
+      "cloud": "External",
+      "boundary": "TB1"
+    },
+    {
+      "id": "idp",
+      "name": "Enterprise identity provider",
+      "cloud": "Enterprise",
+      "boundary": "TB1"
+    },
+    {
+      "id": "api",
+      "name": "RAG API and runtime",
+      "cloud": "Azure",
+      "boundary": "TB1"
+    },
+    {
+      "id": "model",
+      "name": "Managed model endpoint",
+      "cloud": "Azure",
+      "boundary": "TB2"
+    },
+    {
+      "id": "source",
+      "name": "Approved document store",
+      "cloud": "AWS",
+      "boundary": "TB3"
+    },
+    {
+      "id": "ingest",
+      "name": "Ingestion worker",
+      "cloud": "GCP",
+      "boundary": "TB3"
+    },
+    {
+      "id": "index",
+      "name": "Vector index",
+      "cloud": "GCP",
+      "boundary": "TB4"
+    },
+    {
+      "id": "pipeline",
+      "name": "CI/CD and Terraform",
+      "cloud": "Shared",
+      "boundary": "TB5"
+    },
+    {
+      "id": "soc",
+      "name": "Security telemetry and backups",
+      "cloud": "Independent security environment",
+      "boundary": "TB6"
+    }
+  ],
+  "boundaries": [
+    {
+      "id": "TB1",
+      "description": "Browser to identity and application; authenticate user and authorize each document."
+    },
+    {
+      "id": "TB2",
+      "description": "Application to model; untrusted context cannot grant permissions."
+    },
+    {
+      "id": "TB3",
+      "description": "Azure/GCP to AWS; bind federation claims and read-only resource permissions."
+    },
+    {
+      "id": "TB4",
+      "description": "Azure to GCP index; server derives user entitlements and filters retrieval."
+    },
+    {
+      "id": "TB5",
+      "description": "Contributor to production; independent review and scoped release authority."
+    },
+    {
+      "id": "TB6",
+      "description": "Production to evidence/recovery; protect logs and backups independently."
+    }
+  ],
+  "flows": [
+    {
+      "id": "F1",
+      "source": "user",
+      "target": "idp",
+      "data": "Authentication",
+      "authorization": "Phishing-resistant MFA and contextual access"
+    },
+    {
+      "id": "F2",
+      "source": "user",
+      "target": "api",
+      "data": "User token and question",
+      "authorization": "Validate issuer audience expiry; authorize user"
+    },
+    {
+      "id": "F3",
+      "source": "api",
+      "target": "source",
+      "data": "Authorized original documents",
+      "authorization": "Exact federated workload and scoped object access"
+    },
+    {
+      "id": "F4",
+      "source": "source",
+      "target": "ingest",
+      "data": "Approved source and ACL metadata",
+      "authorization": "Read-only ingestion role; preserve provenance"
+    },
+    {
+      "id": "F5",
+      "source": "ingest",
+      "target": "index",
+      "data": "Chunks embeddings and ACLs",
+      "authorization": "Dedicated index write identity; approved document version"
+    },
+    {
+      "id": "F6",
+      "source": "api",
+      "target": "index",
+      "data": "Query and authorized chunks",
+      "authorization": "Dedicated query identity; server enforces document ACL"
+    },
+    {
+      "id": "F7",
+      "source": "api",
+      "target": "model",
+      "data": "Minimum authorized context",
+      "authorization": "Scoped inference permission; approved data handling"
+    },
+    {
+      "id": "F8",
+      "source": "pipeline",
+      "target": "api",
+      "data": "Approved image and IaC",
+      "authorization": "Independent release approval; verified digest"
+    },
+    {
+      "id": "F9",
+      "source": "api",
+      "target": "soc",
+      "data": "Application audit events",
+      "authorization": "Append-only logging identity"
+    },
+    {
+      "id": "F10",
+      "source": "source",
+      "target": "soc",
+      "data": "Object access events and recovery copies",
+      "authorization": "Independent retention and backup authority"
+    },
+    {
+      "id": "F11",
+      "source": "index",
+      "target": "soc",
+      "data": "Query and identity audit",
+      "authorization": "Explicit data-access log coverage"
+    }
+  ],
+  "threats": [
+    {
+      "id": "T1",
+      "stride": [
+        "S",
+        "E"
+      ],
+      "scenario": "Stolen privileged session",
+      "weakness": "Standing privilege and weak change approval",
+      "impact": "Stolen admin session plus standing privilege changes cross-cloud trust; broad data access. A4, TB1/3.",
+      "assets": [
+        "A1",
+        "A4"
+      ],
+      "boundaries": [
+        "TB1",
+        "TB3"
+      ],
+      "likelihood": 4,
+      "impact_score": 5,
+      "target_likelihood": 2,
+      "target_impact": 5,
+      "status": "proposed",
+      "evidence": "",
+      "owner": "IAM lead",
+      "controls": {
+        "prevent": "Phishing-resistant MFA; time-bound admin; dual approval for trust edits",
+        "detect": "Alert on privilege activation and trust change followed by unusual reads",
+        "respond": "Disable identity; apply resource deny; remove trust; assess issued sessions",
+        "recover": "Restore reviewed IAM policies"
+      },
+      "validation": "Unapproved trust edit rejected; exercise session containment"
+    },
+    {
+      "id": "T2",
+      "stride": [
+        "I",
+        "E"
+      ],
+      "scenario": "Cross-group document disclosure",
+      "weakness": "Server trusts caller document IDs or ACL labels",
+      "impact": "API trusts document IDs or caller ACL labels; employee retrieves another group's confidential chunks. A1-3, F3/5.",
+      "assets": [
+        "A1",
+        "A2",
+        "A3"
+      ],
+      "boundaries": [
+        "TB1",
+        "TB4"
+      ],
+      "likelihood": 4,
+      "impact_score": 5,
+      "target_likelihood": 1,
+      "target_impact": 5,
+      "status": "proposed",
+      "evidence": "",
+      "owner": "Application owner",
+      "controls": {
+        "prevent": "Server-side document authorization before retrieval, source fetch and citations; isolate caches",
+        "detect": "Alert on successful unauthorized canary retrieval and repeated denials",
+        "respond": "Disable affected retrieval route; invalidate caches",
+        "recover": "Repair ACL propagation and rebuild affected index"
+      },
+      "validation": "Two-user cross-group tests return zero unauthorized chunks, citations or cached answers"
+    },
+    {
+      "id": "T3",
+      "stride": [
+        "S",
+        "E"
+      ],
+      "scenario": "Cross-cloud federation abuse",
+      "weakness": "Wildcard subjects/audiences and excess resource permission",
+      "impact": "Federation accepts broad subject/audience; compromised workload acquires unintended AWS/GCP permissions. A1/2/4, TB3/4.",
+      "assets": [
+        "A1",
+        "A2",
+        "A4"
+      ],
+      "boundaries": [
+        "TB3",
+        "TB4"
+      ],
+      "likelihood": 4,
+      "impact_score": 5,
+      "target_likelihood": 2,
+      "target_impact": 5,
+      "status": "proposed",
+      "evidence": "",
+      "owner": "IAM lead",
+      "controls": {
+        "prevent": "Exact issuer subject audience and environment bindings; separate query/ingestion identities",
+        "detect": "Unexpected role exchange or resource access",
+        "respond": "Remove trust and deny principal at resources",
+        "recover": "Rebuild scoped trust using reviewed IaC"
+      },
+      "validation": "Wrong issuer subject audience and environment all fail; valid identity has only required permissions"
+    },
+    {
+      "id": "T4",
+      "stride": [
+        "T",
+        "I"
+      ],
+      "scenario": "Retrieved prompt injection",
+      "weakness": "Untrusted text treated as instructions or excessive context sent",
+      "impact": "Malicious retrieved text influences model; excessive context or unsafe rendering leaks data or misleads users. A2/3, TB2.",
+      "assets": [
+        "A2",
+        "A3"
+      ],
+      "boundaries": [
+        "TB2"
+      ],
+      "likelihood": 4,
+      "impact_score": 4,
+      "target_likelihood": 2,
+      "target_impact": 4,
+      "status": "proposed",
+      "evidence": "",
+      "owner": "AI lead",
+      "controls": {
+        "prevent": "Separate instructions from content; minimize context; no model-controlled authorization; escape output",
+        "detect": "Track injection evaluation failures and anomalous citations",
+        "respond": "Quarantine content; disable unsafe feature",
+        "recover": "Restore approved prompt and trusted index"
+      },
+      "validation": "Adversarial documents cannot expand access or trigger actions; evaluate answer reliability separately"
+    },
+    {
+      "id": "T5",
+      "stride": [
+        "T",
+        "E"
+      ],
+      "scenario": "Compromised production release",
+      "weakness": "Runner or dependency can publish unapproved privileged image",
+      "impact": "Compromised dependency or runner publishes privileged image; runtime steals tokens and reads documents. A4/5, TB5.",
+      "assets": [
+        "A4",
+        "A5"
+      ],
+      "boundaries": [
+        "TB5"
+      ],
+      "likelihood": 3,
+      "impact_score": 5,
+      "target_likelihood": 2,
+      "target_impact": 5,
+      "status": "proposed",
+      "evidence": "",
+      "owner": "DevSecOps lead",
+      "controls": {
+        "prevent": "Isolated builds; dependency checks; provenance/digest verification; independent release approval",
+        "detect": "Artifact drift and unusual runtime processes",
+        "respond": "Freeze releases; isolate workloads; deny identity",
+        "recover": "Rebuild clean artifact and redeploy reviewed version"
+      },
+      "validation": "Unapproved digest and unreviewed release rejected; record approval and provenance"
+    },
+    {
+      "id": "T6",
+      "stride": [
+        "E",
+        "I"
+      ],
+      "scenario": "Runtime credential theft",
+      "weakness": "SSRF or runtime compromise plus excessive workload privilege",
+      "impact": "SSRF or runtime compromise reaches credentials; overbroad workload role enables secret/data reads. A1/4, TB2/3.",
+      "assets": [
+        "A1",
+        "A4"
+      ],
+      "boundaries": [
+        "TB2",
+        "TB3"
+      ],
+      "likelihood": 3,
+      "impact_score": 5,
+      "target_likelihood": 2,
+      "target_impact": 4,
+      "status": "proposed",
+      "evidence": "",
+      "owner": "Platform lead",
+      "controls": {
+        "prevent": "SSRF input/egress checks; minimal identity grants; non-root workload; no unnecessary secrets",
+        "detect": "Unexpected metadata/secret/store access",
+        "respond": "Isolate runtime; deny identity; rotate exposed secrets",
+        "recover": "Rebuild clean workload"
+      },
+      "validation": "Bounded SSRF tests and permission checks prove non-required stores/secrets inaccessible"
+    },
+    {
+      "id": "T7",
+      "stride": [
+        "I"
+      ],
+      "scenario": "Confidential data exposure",
+      "weakness": "Public access permissive key grants or verbose prompt logs",
+      "impact": "Public store, permissive key policy or verbose prompt logs expose confidential data. A1-4, TB3/6.",
+      "assets": [
+        "A1",
+        "A3",
+        "A4"
+      ],
+      "boundaries": [
+        "TB3",
+        "TB6"
+      ],
+      "likelihood": 3,
+      "impact_score": 5,
+      "target_likelihood": 1,
+      "target_impact": 5,
+      "status": "proposed",
+      "evidence": "",
+      "owner": "Data owner",
+      "controls": {
+        "prevent": "Block public access; scope decrypt grants; encrypt; redact logs",
+        "detect": "Exposure drift and unusual object/decrypt reads",
+        "respond": "Restrict resource; rotate exposed secrets; assess disclosure",
+        "recover": "Restore approved configuration"
+      },
+      "validation": "Verify anonymous access denied and test sensitive markers absent from logs"
+    },
+    {
+      "id": "T8",
+      "stride": [
+        "T"
+      ],
+      "scenario": "Knowledge poisoning",
+      "weakness": "Unreviewed source writes or ACL metadata tampering",
+      "impact": "Curator/connector can overwrite approved source and ACL metadata; poisoned knowledge corrupts answers. A1-3, F4.",
+      "assets": [
+        "A1",
+        "A2"
+      ],
+      "boundaries": [
+        "TB3",
+        "TB4"
+      ],
+      "likelihood": 3,
+      "impact_score": 4,
+      "target_likelihood": 2,
+      "target_impact": 4,
+      "status": "proposed",
+      "evidence": "",
+      "owner": "Data engineering lead",
+      "controls": {
+        "prevent": "Read-only ingestion; approved source versions; provenance checks",
+        "detect": "Unexpected source version/hash or ACL drift",
+        "respond": "Stop ingestion and quarantine source",
+        "recover": "Restore trusted source/ACLs and reindex"
+      },
+      "validation": "Tampered source and ACL metadata quarantined; trusted reindex passes authorization tests"
+    },
+    {
+      "id": "T9",
+      "stride": [
+        "R"
+      ],
+      "scenario": "Audit suppression",
+      "weakness": "Production administrators can erase evidence",
+      "impact": "Privileged actor disables audit or erases records; misuse cannot be attributed. A6, TB6.",
+      "assets": [
+        "A6"
+      ],
+      "boundaries": [
+        "TB6"
+      ],
+      "likelihood": 3,
+      "impact_score": 4,
+      "target_likelihood": 1,
+      "target_impact": 4,
+      "status": "proposed",
+      "evidence": "",
+      "owner": "SOC lead",
+      "controls": {
+        "prevent": "Independent restricted log destination and retention protections",
+        "detect": "Required log stream absent for 10 minutes or unapproved retention change",
+        "respond": "Preserve independent evidence; restrict destructive access",
+        "recover": "Restore collector and approved logging configuration"
+      },
+      "validation": "Safe log-disable event reaches SOC within target and production admin cannot erase archive"
+    },
+    {
+      "id": "T10",
+      "stride": [
+        "D"
+      ],
+      "scenario": "Request abuse or dependency outage",
+      "weakness": "No user quotas concurrency limits or timeouts",
+      "impact": "User floods costly requests or dependency fails; no quotas/fallback produces outage and cost spike. A3, F2/5/6.",
+      "assets": [
+        "A3"
+      ],
+      "boundaries": [
+        "TB1",
+        "TB2",
+        "TB4"
+      ],
+      "likelihood": 4,
+      "impact_score": 3,
+      "target_likelihood": 2,
+      "target_impact": 3,
+      "status": "proposed",
+      "evidence": "",
+      "owner": "Application owner",
+      "controls": {
+        "prevent": "Per-user quotas; request/token limits; circuit breakers",
+        "detect": "Volume/spend twice baseline for 10 minutes; error/latency alert",
+        "respond": "Throttle requests; disable generation with safe unavailable response",
+        "recover": "Restore capacity and verify dependency health"
+      },
+      "validation": "Bounded load and dependency-failure test verifies caps and safe failures"
+    },
+    {
+      "id": "T11",
+      "stride": [
+        "T",
+        "D"
+      ],
+      "scenario": "Destruction of data and recovery",
+      "weakness": "Same principal can delete production and every backup",
+      "impact": "Attacker deletes source/index and backups using same authority; recovery fails. A1/2/6, TB6.",
+      "assets": [
+        "A1",
+        "A2",
+        "A6"
+      ],
+      "boundaries": [
+        "TB6"
+      ],
+      "likelihood": 3,
+      "impact_score": 5,
+      "target_likelihood": 1,
+      "target_impact": 5,
+      "status": "proposed",
+      "evidence": "",
+      "owner": "Platform lead",
+      "controls": {
+        "prevent": "Separate backup authority; retained versions; reviewed deletion policy",
+        "detect": "Backup retention changes and mass deletion",
+        "respond": "Freeze destructive identities; preserve surviving copies",
+        "recover": "Restore trusted source and ACLs into clean environment and reindex"
+      },
+      "validation": "Restore drill measures RTO 4h and RPO 24h targets; compromised production identity cannot delete all copies"
+    }
+  ],
+  "attack_paths": [
+    {
+      "id": "AP1",
+      "name": "Stolen identity crosses clouds",
+      "threats": [
+        "T1",
+        "T3",
+        "T7"
+      ],
+      "steps": [
+        "Steal admin session",
+        "Edit federation trust",
+        "Assume broad AWS role",
+        "Read source documents",
+        "Exfiltrate"
+      ],
+      "breakpoints": "Time-bound privilege, independent trust approval, scoped object access and correlated data-read alerts."
+    },
+    {
+      "id": "AP2",
+      "name": "Private retrieval leaks documents",
+      "threats": [
+        "T2",
+        "T4"
+      ],
+      "steps": [
+        "Authenticate as ordinary employee",
+        "Change document ID/filter",
+        "Retrieve unauthorized chunks",
+        "Model reveals confidential answer"
+      ],
+      "breakpoints": "Server-side document ACLs before context assembly; per-user cache isolation and canary tests."
+    },
+    {
+      "id": "AP3",
+      "name": "Compromised release steals data",
+      "threats": [
+        "T5",
+        "T6",
+        "T3",
+        "T9"
+      ],
+      "steps": [
+        "Compromise dependency or runner",
+        "Deploy malicious image",
+        "Steal runtime token",
+        "Assume cross-cloud role",
+        "Read data and suppress local logs"
+      ],
+      "breakpoints": "Verified release digest, independent approval, narrow workload role and independent logs."
+    },
+    {
+      "id": "AP4",
+      "name": "Poisoned recovery",
+      "threats": [
+        "T8",
+        "T11"
+      ],
+      "steps": [
+        "Modify approved source",
+        "Rebuild poisoned index",
+        "Overwrite recovery copy",
+        "Restore poisoned data"
+      ],
+      "breakpoints": "Independent source approval, protected versions and tested clean reindex."
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+id,scenario,owner,inherent_score,current_score,current_rating,target_score,status
+T1,Stolen privileged session,IAM lead,20,20,Critical,10,proposed
+T2,Cross-group document disclosure,Application owner,20,20,Critical,5,proposed
+T3,Cross-cloud federation abuse,IAM lead,20,20,Critical,10,proposed
+T4,Retrieved prompt injection,AI lead,16,16,High,8,proposed
+T11,Destruction of data and recovery,Platform lead,15,15,High,5,proposed
+T5,Compromised production release,DevSecOps lead,15,15,High,10,proposed
+T6,Runtime credential theft,Platform lead,15,15,High,8,proposed
+T7,Confidential data exposure,Data owner,15,15,High,5,proposed
+T10,Request abuse or dependency outage,Application owner,12,12,High,6,proposed
+T8,Knowledge poisoning,Data engineering lead,12,12,High,8,proposed
+T9,Audit suppression,SOC lead,12,12,High,4,proposed
